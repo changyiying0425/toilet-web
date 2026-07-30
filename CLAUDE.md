@@ -53,7 +53,7 @@ cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 - [x] **場景 B 全景 HUB**：`(TOILET)`（右）/`(SINK)`（左）兩區，點擊進子場景
 - [x] 場景切換系統 `goScene()`：漸暗淡入；C 馬桶 / D 洗手台先作預覽（互動待建）
 - [x] **三個 `(← BACK)`**：左上角常駐文字，hub→門、toilet/sink→hub（`data-target`）
-- [x] **游標視覺系統**：平常無外框；進可點區 → 文字加 2px 反色外框 + 同色柔光（`#cursor.glow` + `::before`）
+- [x] **游標視覺系統**：平常無外框；進可點區 → 文字加 2px 反色外框 + 同色柔光（`#cursor.glow` + `::before`）；文字中心對齊滑鼠 (0,0)（`translate(-50%,-50%)`）
 - [x] **BACK 區塊**：滑入時隱藏跟隨文字、顯示像素箭頭鼠標 `cursor.png`（`body.over-back`）
 - [ ] 場景 C 馬桶細部互動（掀蓋 → (PEE) 堆積 → 沖水旋轉）
 - [ ] 場景 C 馬桶（掀蓋、(PEE) 堆積、沖水旋轉）
