@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toilet — 廁所互動體驗</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: "Courier New", ui-monospace, monospace;
+  }
+  body { display: flex; align-items: center; justify-content: center; cursor: none; }
+
+  /* 16:9 舞台，自動縮放貼合視窗 */
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 56.25vw;
+    max-height: 100vh;
+    max-width: 177.78vh;
+    background: #000;
+    overflow: hidden;
+  }
+
+  /* 場景層 */
+  .scene {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.45s ease;
+  }
+  .scene.active { opacity: 1; pointer-events: auto; }
+
+  /* 熱區：預設透明，debug 模式顯示外框 */
+  .hot { position: absolute; cursor: none; }
+  body.debug .hot {
+    outline: 2px dashed rgba(255,60,60,0.9);
+    background: rgba(255,60,60,0.12);
+  }
+  .hot.hovering { background: rgba(255,255,255,0.10); }
+
+  /* 跟隨游標的文字 —— 用 difference 混色，黑白點點上永遠看得見 */
+  #cursor {
+    position: absolute; left: 0; top: 0;
+    transform: translate(-50%, -175%);
+    font-weight: 700;
+    font-size: clamp(14px, 1.9vw, 30px);
+    letter-spacing: 2px;
+    color: #fff;
+    mix-blend-mode: difference;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 50;
+    transition: opacity 0.2s;
+  }
+
+  /* 黑幕轉場 */
+  #fade {
+    position: absolute; inset: 0; background: #000;
+    opacity: 0; pointer-events: none; z-index: 40;
+    transition: opacity 0.5s ease;
+  }
+  #fade.on { opacity: 1; }
+
+  /* 建置中提示 */
+  #wip {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-50%);
+    color: #fff; mix-blend-mode: difference;
+    font-size: clamp(12px,1.4vw,20px); letter-spacing: 3px;
+    opacity: 0; transition: opacity 0.4s; z-index: 45; pointer-events: none;
+    text-align: center;
+  }
+  #wip.on { opacity: 1; }
+
+  #hint {
+    position: absolute; left: 10px; bottom: 8px;
+    color: #888; font-size: 11px; letter-spacing: 1px; z-index: 60;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <!-- 場景 A：門 -->
+    <div class="scene active" id="scene-door" style="background-image:url('door.jpg')">
+      <!-- 門把熱區（位置為暫定，debug 模式可見，之後依實圖微調） -->
+      <div class="hot" id="hot-door"
+           data-label="OPEN"
+           style="left:38%; top:10%; width:26%; height:74%;"></div>
+    </div>
+
+    <!-- 場景 B：全景 HUB（暫作轉場預覽，尚未加互動） -->
+    <div class="scene" id="scene-hub" style="background-image:url('hub.jpg')"></div>
+
+    <div id="cursor">(URGENCY)</div>
+    <div id="fade"></div>
+    <div id="wip">場景 B（全景）建置中…<br>門的機制已可運作 ✓</div>
+    <div id="hint">按 D 顯示 / 隱藏 熱區外框</div>
+  </div>
+
+<script>
+(function () {
+  var stage  = document.getElementById('stage');
+  var cursor = document.getElementById('cursor');
+  var fade   = document.getElementById('fade');
+  var wip    = document.getElementById('wip');
+
+  // 全站狀態：常駐字 URGENCY -> RELIEF（沖水後）
+  var state = { relieved: false };
+  function idleWord() { return state.relieved ? 'RELIEF' : 'URGENCY'; }
+  function setCursor(word) { cursor.textContent = '(' + word + ')'; }
+
+  // 游標跟隨
+  stage.addEventListener('mousemove', function (e) {
+    var r = stage.getBoundingClientRect();
+    cursor.style.left = (e.clientX - r.left) + 'px';
+    cursor.style.top  = (e.clientY - r.top) + 'px';
+  });
+  document.addEventListener('mouseenter', function(){ cursor.style.opacity = 1; });
+  window.addEventListener('mouseout', function (e) {
+    if (!e.relatedTarget) cursor.style.opacity = 0;
+  });
+  window.addEventListener('mouseover', function(){ cursor.style.opacity = 1; });
+
+  // 熱區共用：hover 切字 + 高亮
+  function wireHotspot(el, onClick) {
+    el.addEventListener('mouseenter', function () {
+      setCursor(el.dataset.label);
+      el.classList.add('hovering');
+    });
+    el.addEventListener('mouseleave', function () {
+      setCursor(idleWord());
+      el.classList.remove('hovering');
+    });
+    if (onClick) el.addEventListener('click', onClick);
+  }
+
+  // 場景切換（黑幕漸暗淡入）
+  function goScene(fromId, toId, afterReveal) {
+    fade.classList.add('on');
+    setTimeout(function () {
+      document.getElementById(fromId).classList.remove('active');
+      document.getElementById(toId).classList.add('active');
+      fade.classList.remove('on');
+      if (afterReveal) afterReveal();
+    }, 520);
+  }
+
+  // 門把 -> 開門 -> 進全景（目前全景僅作轉場預覽）
+  wireHotspot(document.getElementById('hot-door'), function () {
+    goScene('scene-door', 'scene-hub', function () {
+      setCursor(idleWord());
+      wip.classList.add('on');
+    });
+  });
+
+  // Debug：按 D 顯示熱區外框
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'd' || e.key === 'D') document.body.classList.toggle('debug');
+  });
+
+  setCursor(idleWord());
+})();
+</script>
+</body>
+</html>

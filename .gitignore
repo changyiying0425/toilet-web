@@ -1,0 +1,11 @@
+# OS / 編輯器雜項
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+*.log
+
+# 本地工具
+.vscode/
+.idea/
