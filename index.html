@@ -45,7 +45,15 @@
     outline: 2px dashed rgba(255,60,60,0.9);
     background: rgba(255,60,60,0.12);
   }
-  .hot.hovering { background: rgba(255,255,255,0.10); }
+  /* 左上角常駐返回文字 */
+  .hot.back {
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 6px; white-space: nowrap;
+    font-size: clamp(12px, 1vw, 18px); letter-spacing: 2px;
+    color: #fff; -webkit-text-stroke: 0; text-stroke: 0;
+    cursor: url('cursor.png') 0 0, auto;   /* 僅 BACK 顯示像素箭頭 */
+  }
+  body.over-back #cursor { opacity: 0 !important; }   /* 在 BACK 上時隱藏跟隨文字 */
 
   /* 跟隨游標的文字 —— 用 difference 混色，黑白點點上永遠看得見 */
   #cursor {
@@ -54,20 +62,36 @@
     font-weight: 700;
     font-size: clamp(12px, 1vw, 18px);   /* 約 18px，可再調 */
     letter-spacing: 2px;
-    color: #000;                         /* 預設：黑字 + 白描邊 0.75px */
-    -webkit-text-stroke: 0.75px #fff;
-    text-stroke: 0.75px #fff;
+    color: #000;                         /* 預設：純黑字、無外框 */
+    -webkit-text-stroke: 0;
+    text-stroke: 0;
     paint-order: stroke fill;
     pointer-events: none;
     white-space: nowrap;
     z-index: 50;
     transition: opacity 0.2s;
   }
-  /* 按 C 切換：白字 + 黑描邊 */
+  /* 依背景深淺切換：純白字、無外框 */
   body.inverted #cursor {
     color: #fff;
-    -webkit-text-stroke: 0.75px #000;
-    text-stroke: 0.75px #000;
+    -webkit-text-stroke: 0;
+    text-stroke: 0;
+  }
+  /* 進入可點區：文字加 2px 反色外框 */
+  #cursor.glow { -webkit-text-stroke: 2px #fff; text-stroke: 2px #fff; }              /* 黑字 → 白外框 */
+  body.inverted #cursor.glow { -webkit-text-stroke: 2px #000; text-stroke: 2px #000; } /* 白字 → 黑外框 */
+  /* 進入可點區時，文字後方浮現「與字反色」的柔光塊 */
+  #cursor::before {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 150%; height: 240%;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.9), rgba(0,0,0,0) 70%);
+    filter: blur(7px); z-index: -1; opacity: 0;
+    transition: opacity 0.15s; pointer-events: none;
+  }
+  #cursor.glow::before { opacity: 1; }
+  body.inverted #cursor::before {
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
   }
 
   /* 黑幕轉場 */
@@ -99,18 +123,35 @@
   <div id="stage">
     <!-- 場景 A：門 -->
     <div class="scene active" id="scene-door" data-src="door.jpg" style="background-image:url('door.jpg')">
-      <!-- 門把熱區（位置為暫定，debug 模式可見，之後依實圖微調） -->
-      <div class="hot" id="hot-door"
-           data-label="OPEN"
+      <div class="hot" id="hot-door" data-label="OPEN"
            style="left:40.5%; top:46%; width:7%; height:13.5%;"></div>
     </div>
 
-    <!-- 場景 B：全景 HUB（暫作轉場預覽，尚未加互動） -->
-    <div class="scene" id="scene-hub" data-src="hub.jpg" style="background-image:url('hub.jpg')"></div>
+    <!-- 場景 B：全景 HUB（馬桶 / 洗手台兩區；位置暫定，按 D 校正） -->
+    <div class="scene" id="scene-hub" data-src="hub.jpg" style="background-image:url('hub.jpg')">
+      <div class="hot" id="hot-sink" data-label="SINK"
+           style="left:22%; top:38%; width:27%; height:25%;"></div>
+      <div class="hot" id="hot-toilet" data-label="TOILET"
+           style="left:55.5%; top:44%; width:13%; height:28%;"></div>
+      <div class="hot back" data-label="← BACK" data-target="scene-door"
+           style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
+    </div>
+
+    <!-- 場景 C：馬桶（互動待建，先作預覽） -->
+    <div class="scene" id="scene-toilet" data-src="toilet-closed.jpg" style="background-image:url('toilet-closed.jpg')">
+      <div class="hot back" data-label="← BACK"
+           style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
+    </div>
+
+    <!-- 場景 D：洗手台（互動待建，先作預覽） -->
+    <div class="scene" id="scene-sink" data-src="sink.jpg" style="background-image:url('sink.jpg')">
+      <div class="hot back" data-label="← BACK"
+           style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
+    </div>
 
     <div id="cursor">(URGENCY)</div>
     <div id="fade"></div>
-    <div id="wip">場景 B（全景）建置中…<br>門的機制已可運作 ✓</div>
+    <div id="wip"></div>
     <div id="hint">按 D 顯示 / 隱藏 熱區外框</div>
   </div>
 
@@ -192,11 +233,11 @@
   function wireHotspot(el, onClick) {
     el.addEventListener('mouseenter', function () {
       setCursor(el.dataset.label);
-      el.classList.add('hovering');
+      cursor.classList.add('glow');
     });
     el.addEventListener('mouseleave', function () {
       setCursor(idleWord());
-      el.classList.remove('hovering');
+      cursor.classList.remove('glow');
     });
     if (onClick) el.addEventListener('click', onClick);
   }
@@ -213,11 +254,38 @@
     }, 520);
   }
 
-  // 門把 -> 開門 -> 進全景（目前全景僅作轉場預覽）
+  function showWip(html) { wip.innerHTML = html; wip.classList.add('on'); }
+  function hideWip() { wip.classList.remove('on'); }
+
+  // A 門 -> B 全景
   wireHotspot(document.getElementById('hot-door'), function () {
-    goScene('scene-door', 'scene-hub', function () {
+    goScene('scene-door', 'scene-hub', function () { setCursor(idleWord()); hideWip(); });
+  });
+
+  // B 全景 -> C 馬桶 / D 洗手台（目前為預覽，互動待建）
+  wireHotspot(document.getElementById('hot-toilet'), function () {
+    goScene('scene-hub', 'scene-toilet', function () {
       setCursor(idleWord());
-      wip.classList.add('on');
+      showWip('馬桶場景 建置中…<br>按左上角 (← BACK) 返回全景');
+    });
+  });
+  wireHotspot(document.getElementById('hot-sink'), function () {
+    goScene('scene-hub', 'scene-sink', function () {
+      setCursor(idleWord());
+      showWip('洗手台場景 建置中…<br>按左上角 (← BACK) 返回全景');
+    });
+  });
+
+  // 左上角 (← BACK)：hub 回門、馬桶/洗手台回全景（依 data-target）
+  Array.prototype.forEach.call(document.querySelectorAll('.hot.back'), function (el) {
+    var from = el.closest('.scene').id;
+    var target = el.dataset.target || 'scene-hub';
+    // BACK 上不顯示跟隨文字、恢復原生鼠標
+    el.addEventListener('mouseenter', function () { document.body.classList.add('over-back'); cursor.classList.remove('glow'); });
+    el.addEventListener('mouseleave', function () { document.body.classList.remove('over-back'); });
+    el.addEventListener('click', function () {
+      document.body.classList.remove('over-back');
+      goScene(from, target, function () { setCursor(idleWord()); hideWip(); });
     });
   });
 
