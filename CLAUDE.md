@@ -55,7 +55,11 @@ cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 - [x] **三個 `(← BACK)`**：左上角常駐文字，hub→門、toilet/sink→hub（`data-target`）
 - [x] **游標視覺系統**：平常無外框；進可點區 → 文字加 2px 反色外框 + 同色柔光（`#cursor.glow` + `::before`）；文字中心對齊滑鼠 (0,0)（`translate(-50%,-50%)`）
 - [x] **BACK 區塊**：滑入時隱藏跟隨文字、顯示像素箭頭鼠標 `cursor.png`（`body.over-back`）
-- [ ] 場景 C 馬桶細部互動（掀蓋 → (PEE) 堆積 → 沖水旋轉）
+- [x] **場景 C 馬桶**：掀蓋 `(LIFT)` 漸暗換 `toilet-open.jpg`、常駐字→`(PEE)`
+- [x] 馬桶內長按 → `(PEE)` **從游標直線射向藍區最低點 `DRAIN` 並堆積**（`fillR` 向外填、夾限在綠色 `BOWL` 橢圓內）；字級 13–23px、黃色
+- [x] 沖水改為 **`(PEE)` 達 `FLUSH_MIN` 後按空白鍵** → 旋轉沖走 → 永久 `(RELIEF)`（無沖水把手）
+- [ ] 馬桶物理/沖水效果持續微調中（座標：BOWL 綠橢圓、DRAIN 藍圈、hot-bowl 觸發框）
+- [ ] 場景 D 洗手台（水龍頭出水、撥水物理）
 - [ ] 場景 C 馬桶（掀蓋、(PEE) 堆積、沖水旋轉）
 - [ ] 場景 D 洗手台（水龍頭出水、撥水物理）
 - [ ] 部署 Netlify 公開連結

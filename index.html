@@ -55,6 +55,32 @@
   }
   body.over-back #cursor { opacity: 0 !important; }   /* 在 BACK 上時隱藏跟隨文字 */
 
+  /* 場景 C：掀蓋前後切換可見的熱區 */
+  .when-open { display: none; }
+  #scene-toilet.opened .when-open { display: block; }
+  #scene-toilet.opened .when-closed { display: none; }
+
+  /* PEE 堆積與沖水旋轉 */
+  #pee-pile { position: absolute; inset: 0; pointer-events: none; z-index: 30; transform-origin: 49.3% 58.75%; }
+  #pee-pile.flushing {
+    transition: transform 1s cubic-bezier(.45,0,.9,.5), opacity 1s ease-in;
+    transform: rotate(900deg) scale(0.05); opacity: 0;
+  }
+  .pee {
+    position: absolute; transform: translate(-50%, -50%);
+    color: #ffd21e; white-space: nowrap; letter-spacing: 1px;   /* 黃色 (PEE) */
+    font-family: "DotGothic16", monospace; text-shadow: 0 0 2px #000, 0 0 4px #000;
+  }
+  /* 沖水提示（(PEE) 達門檻後出現） */
+  #flush-hint {
+    position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
+    font-family: "DotGothic16", monospace; font-size: clamp(12px, 1.4vw, 22px); letter-spacing: 3px;
+    color: #fff; text-shadow: 0 0 3px #000, 0 0 6px #000;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 35;
+  }
+  #flush-hint.on { opacity: 1; animation: fhpulse 1.1s ease-in-out infinite; }
+  @keyframes fhpulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.08); } }
+
   /* 跟隨游標的文字 —— 用 difference 混色，黑白點點上永遠看得見 */
   #cursor {
     position: absolute; left: 0; top: 0;
@@ -137,9 +163,15 @@
            style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
     </div>
 
-    <!-- 場景 C：馬桶（互動待建，先作預覽） -->
+    <!-- 場景 C：馬桶（掀蓋 → PEE 堆積 → 沖水；位置暫定，按 D 校正） -->
     <div class="scene" id="scene-toilet" data-src="toilet-closed.jpg" style="background-image:url('toilet-closed.jpg')">
-      <div class="hot back" data-label="← BACK"
+      <div class="hot when-closed" id="hot-lift" data-label="LIFT"
+           style="left:33%; top:2%; width:30%; height:86%;"></div>
+      <div class="hot when-open" id="hot-bowl" data-label="PEE"
+           style="left:10%; top:28%; width:85%; height:72%;"></div>
+      <div id="pee-pile"></div>
+      <div id="flush-hint">按 [SPACE] 沖水</div>
+      <div class="hot back" data-label="← BACK" data-target="scene-hub"
            style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
     </div>
 
@@ -166,7 +198,12 @@
 
   // 全站狀態：常駐字 URGENCY -> RELIEF（沖水後）
   var state = { relieved: false };
-  function idleWord() { return state.relieved ? 'RELIEF' : 'URGENCY'; }
+  function idleWord() {
+    if (state.relieved) return 'RELIEF';
+    var sc = currentScene();
+    if (sc && sc.id === 'scene-toilet' && sc.classList.contains('opened')) return 'PEE';
+    return 'URGENCY';
+  }
   function setCursor(word) { cursor.textContent = '(' + word + ')'; }
   function setInk(mode) { document.body.classList.toggle('inverted', mode === 'white'); }
 
@@ -178,9 +215,10 @@
   var THRESHOLD = 128;   // 亮度門檻 0(黑)~255(白)
   var samplers = {};
   function getSampler(scene) {
-    if (samplers[scene.id]) return samplers[scene.id];
+    var url = scene.dataset.src;                 // 以圖檔網址為 key，換背景會重新取樣
+    if (samplers[url]) return samplers[url];
     var s = { ready: false };
-    samplers[scene.id] = s;
+    samplers[url] = s;
     var img = new Image();
     img.onload = function () {
       var w = SAMPLE_W, h = Math.round(img.height / img.width * SAMPLE_W);
@@ -190,7 +228,7 @@
       s.cx = cx; s.w = w; s.h = h; s.ready = true;
       applyInk();
     };
-    img.src = scene.dataset.src;
+    img.src = url;
     return s;
   }
   function inkFor(scene, xF, yF) {
@@ -262,12 +300,10 @@
     goScene('scene-door', 'scene-hub', function () { setCursor(idleWord()); hideWip(); });
   });
 
-  // B 全景 -> C 馬桶 / D 洗手台（目前為預覽，互動待建）
+  // B 全景 -> C 馬桶（每次進入重置為關蓋）
   wireHotspot(document.getElementById('hot-toilet'), function () {
-    goScene('scene-hub', 'scene-toilet', function () {
-      setCursor(idleWord());
-      showWip('馬桶場景 建置中…<br>按左上角 (← BACK) 返回全景');
-    });
+    resetToilet();
+    goScene('scene-hub', 'scene-toilet', function () { setCursor(idleWord()); hideWip(); });
   });
   wireHotspot(document.getElementById('hot-sink'), function () {
     goScene('scene-hub', 'scene-sink', function () {
@@ -289,11 +325,134 @@
     });
   });
 
+  // ── 場景 C 馬桶互動 ──────────────────────────────────────────
+  var toiletScene = document.getElementById('scene-toilet');
+  var pile = document.getElementById('pee-pile');
+  var bowl = document.getElementById('hot-bowl');
+  var flushHint = document.getElementById('flush-hint');
+
+  // 馬桶內部橢圓範圍（%）；(PEE) 落點與堆積都限制在此橢圓內
+  var BOWL = { cx: 50, cy: 58.7, rx: 11.4, ry: 26.3 };   // 綠色橢圓＝馬桶邊緣（最高處/邊界）
+  var MAX_PEE = 400, FLUSH_MIN = 25, GRAV = 0.05;
+  var DRAIN = { x: 50, y: 52 }, FILL_MAX = 7, ACC = 0.06, DAMP = 0.86;   // 藍色圈＝最低點（積水區/排水口）
+  var SPEED = 1.5, PILE_STRETCH = 1.5;   // (PEE) 朝藍區直線前進的速度
+  var particles = [], fillR = 2, rafId = null, pouring = null;
+
+  function ellipseHalfW(y) {              // 在給定 y，橢圓允許的半寬
+    var t = (y - BOWL.cy) / BOWL.ry, v = 1 - t * t;
+    return v <= 0 ? 0 : BOWL.rx * Math.sqrt(v);
+  }
+  function placePee(p) { p.el.style.left = p.x + '%'; p.el.style.top = p.y + '%'; }
+
+  function stopPour() { if (pouring) { clearInterval(pouring); pouring = null; } }
+  function resetToilet() {
+    toiletScene.classList.remove('opened');
+    toiletScene.dataset.src = 'toilet-closed.jpg';
+    toiletScene.style.backgroundImage = "url('toilet-closed.jpg')";
+    stopPour();
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pile.classList.remove('flushing');
+    pile.style.transform = ''; pile.style.opacity = '';
+    pile.innerHTML = ''; particles = []; fillR = 2;
+    flushHint.classList.remove('on');
+  }
+
+  // 掀蓋 LIFT（漸暗切換掀蓋圖）
+  wireHotspot(document.getElementById('hot-lift'), function () {
+    fade.classList.add('on');
+    setTimeout(function () {
+      toiletScene.classList.add('opened');
+      toiletScene.dataset.src = 'toilet-open.jpg';
+      toiletScene.style.backgroundImage = "url('toilet-open.jpg')";
+      applyInk();
+      fade.classList.remove('on');
+      setCursor(idleWord());
+    }, 520);
+  });
+
+  // 長按馬桶內：(PEE) 自游標位置生成、受重力落下、堆積於橢圓內
+  function inPile(x, y) {                        // 是否已進入藍區堆積範圍（橢圓）
+    var ux = x - DRAIN.x, uy = (y - DRAIN.y) / PILE_STRETCH;
+    return Math.sqrt(ux * ux + uy * uy) <= fillR;
+  }
+  function settleAt(p) {                         // 堆積於藍區（沿接近方向、隨機深度填滿）
+    var ux = p.x - DRAIN.x, uy = (p.y - DRAIN.y) / PILE_STRETCH, d = Math.sqrt(ux * ux + uy * uy) || 0.001;
+    var rr = fillR * Math.sqrt(Math.random());
+    p.x = DRAIN.x + (ux / d) * rr;
+    p.y = DRAIN.y + (uy / d) * rr * PILE_STRETCH;
+    p.settled = true;
+    fillR = Math.min(fillR + 0.06, FILL_MAX);
+  }
+  function clampBowl(p) {                         // 限制在綠色橢圓（馬桶邊緣）內
+    if (p.y > BOWL.cy + BOWL.ry) p.y = BOWL.cy + BOWL.ry;
+    else if (p.y < BOWL.cy - BOWL.ry) p.y = BOWL.cy - BOWL.ry;
+    var hw = ellipseHalfW(p.y);
+    if (p.x < BOWL.cx - hw) p.x = BOWL.cx - hw;
+    else if (p.x > BOWL.cx + hw) p.x = BOWL.cx + hw;
+  }
+  function inBowl(x, y) {                         // 是否在綠色橢圓內
+    var ux = (x - BOWL.cx) / BOWL.rx, uy = (y - BOWL.cy) / BOWL.ry;
+    return ux * ux + uy * uy <= 1;
+  }
+  // 長按：無論在哪點擊，(PEE) 都從游標「直線」射向藍區最低點，抵達後堆積
+  function spawnPee() {
+    if (particles.length >= MAX_PEE) return;
+    var el = document.createElement('span');
+    el.className = 'pee'; el.textContent = '(PEE)';
+    el.style.fontSize = (13 + Math.random() * 10).toFixed(0) + 'px';   // 13–23px 隨機
+    pile.appendChild(el);
+    var x0 = lastFrac.x * 100, y0 = lastFrac.y * 100;
+    var dx = DRAIN.x - x0, dy = DRAIN.y - y0, d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+    var p = { el: el, x: x0, y: y0, vx: dx / d * SPEED, vy: dy / d * SPEED, settled: false };
+    particles.push(p); placePee(p);
+    if (particles.length >= FLUSH_MIN) flushHint.classList.add('on');
+    if (!rafId) rafId = requestAnimationFrame(step);
+  }
+  function step() {
+    var active = false;
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i]; if (p.settled) continue;
+      if (inPile(p.x, p.y)) { settleAt(p); placePee(p); continue; }   // 抵達藍區 -> 堆積
+      p.x += p.vx; p.y += p.vy;                                       // 朝藍區直線前進
+      placePee(p);
+      active = true;
+    }
+    rafId = active ? requestAnimationFrame(step) : null;
+  }
+  function startPour() { if (!pouring && toiletScene.classList.contains('opened')) { spawnPee(); pouring = setInterval(spawnPee, 70); } }
+  wireHotspot(bowl);                       // hover 顯示 (PEE) + 柔光
+  bowl.addEventListener('mousedown', startPour);
+  bowl.addEventListener('mouseleave', stopPour);
+  window.addEventListener('mouseup', stopPour);
+
+  // 空白鍵沖水（(PEE) 達門檻後）：旋轉沖走 -> 永久轉 RELIEF
+  function flush() {
+    stopPour();
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    pile.classList.add('flushing');
+    flushHint.classList.remove('on');
+    state.relieved = true;
+    setCursor('RELIEF'); cursor.classList.remove('glow');
+    setTimeout(function () {
+      pile.classList.remove('flushing');
+      pile.style.transform = ''; pile.style.opacity = '';
+      pile.innerHTML = ''; particles = []; fillR = 2;
+    }, 1100);
+  }
+
   // Debug：按 D 顯示熱區外框
   document.addEventListener('keydown', function (e) {
     if (e.key === 'd' || e.key === 'D') {
       var on = document.body.classList.toggle('debug');
       if (!on) hint.textContent = '按 D 顯示 / 隱藏 熱區外框';
+    }
+    if (e.code === 'Space' &&
+        currentScene() && currentScene().id === 'scene-toilet' &&
+        toiletScene.classList.contains('opened') &&
+        particles.length >= FLUSH_MIN &&
+        !pile.classList.contains('flushing')) {
+      e.preventDefault();
+      flush();
     }
   });
 
