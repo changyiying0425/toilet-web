@@ -297,6 +297,7 @@
 
   // A 門 -> B 全景
   wireHotspot(document.getElementById('hot-door'), function () {
+    playDoor();
     goScene('scene-door', 'scene-hub', function () { setCursor(idleWord()); hideWip(); });
   });
 
@@ -334,8 +335,8 @@
   // 馬桶內部橢圓範圍（%）；(PEE) 落點與堆積都限制在此橢圓內
   var BOWL = { cx: 50, cy: 58.7, rx: 11.4, ry: 26.3 };   // 綠色橢圓＝馬桶邊緣（最高處/邊界）
   var MAX_PEE = 400, FLUSH_MIN = 25, GRAV = 0.05;
-  var DRAIN = { x: 50, y: 52 }, FILL_MAX = 7, ACC = 0.06, DAMP = 0.86;   // 藍色圈＝最低點（積水區/排水口）
-  var SPEED = 1.5, PILE_STRETCH = 1.5;   // (PEE) 朝藍區直線前進的速度
+  var DRAIN = { x: 50, y: 52 }, FILL_MAX = 8, ACC = 0.06, DAMP = 0.86;   // 藍色圈＝最低點（積水區/排水口）
+  var SPEED = 1.5, ARC = 0.05, PILE_STRETCH = 1.5;   // SPEED=飛行速度、ARC=拋物線重力
   var particles = [], fillR = 2, rafId = null, pouring = null;
 
   function ellipseHalfW(y) {              // 在給定 y，橢圓允許的半寬
@@ -344,7 +345,7 @@
   }
   function placePee(p) { p.el.style.left = p.x + '%'; p.el.style.top = p.y + '%'; }
 
-  function stopPour() { if (pouring) { clearInterval(pouring); pouring = null; } }
+  function stopPour() { if (pouring) { clearInterval(pouring); pouring = null; stopPeeSound(); } }
   function resetToilet() {
     toiletScene.classList.remove('opened');
     toiletScene.dataset.src = 'toilet-closed.jpg';
@@ -394,6 +395,32 @@
     var ux = (x - BOWL.cx) / BOWL.rx, uy = (y - BOWL.cy) / BOWL.ry;
     return ux * ux + uy * uy <= 1;
   }
+
+  // ── 音效（Web Audio 即時合成，無外部音檔） ──────────────────────
+  var actx = null;
+  function audio() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  var doorAudio = new Audio('door%20sound.mp3');   // 使用者提供的開門音效
+  function playDoor() {
+    try { doorAudio.currentTime = 0; doorAudio.play(); } catch (e) {}
+  }
+  var peeAudio = new Audio('pee%20sound.mp3'); peeAudio.loop = true;   // 使用者提供的尿尿音效（長按循環）
+  function startPeeSound() { try { peeAudio.currentTime = 0; peeAudio.play(); } catch (e) {} }
+  function stopPeeSound() { try { peeAudio.pause(); } catch (e) {} }
+  function playRelief() {                         // 完成：解脫大三和弦
+    var ctx = audio(); if (!ctx) return; var t0 = ctx.currentTime;
+    [523.25, 659.25, 783.99].forEach(function (f, k) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.08 + k * 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 1.35);
+    });
+  }
   // 長按：無論在哪點擊，(PEE) 都從游標「直線」射向藍區最低點，抵達後堆積
   function spawnPee() {
     if (particles.length >= MAX_PEE) return;
@@ -402,8 +429,10 @@
     el.style.fontSize = (13 + Math.random() * 10).toFixed(0) + 'px';   // 13–23px 隨機
     pile.appendChild(el);
     var x0 = lastFrac.x * 100, y0 = lastFrac.y * 100;
-    var dx = DRAIN.x - x0, dy = DRAIN.y - y0, d = Math.sqrt(dx * dx + dy * dy) || 0.001;
-    var p = { el: el, x: x0, y: y0, vx: dx / d * SPEED, vy: dy / d * SPEED, settled: false };
+    var dx = DRAIN.x - x0, dy = DRAIN.y - y0, dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+    var T = Math.max(8, dist / SPEED);                               // 飛行幀數（依距離）
+    var p = { el: el, x: x0, y: y0,
+              vx: dx / T, vy: dy / T - 0.5 * ARC * T, settled: false };  // 稍朝上瞄準，靠重力彎成拋物線
     particles.push(p); placePee(p);
     if (particles.length >= FLUSH_MIN) flushHint.classList.add('on');
     if (!rafId) rafId = requestAnimationFrame(step);
@@ -413,13 +442,14 @@
     for (var i = 0; i < particles.length; i++) {
       var p = particles[i]; if (p.settled) continue;
       if (inPile(p.x, p.y)) { settleAt(p); placePee(p); continue; }   // 抵達藍區 -> 堆積
-      p.x += p.vx; p.y += p.vy;                                       // 朝藍區直線前進
+      p.vy += ARC;                                                    // 重力 -> 拋物線
+      p.x += p.vx; p.y += p.vy;
       placePee(p);
       active = true;
     }
     rafId = active ? requestAnimationFrame(step) : null;
   }
-  function startPour() { if (!pouring && toiletScene.classList.contains('opened')) { spawnPee(); pouring = setInterval(spawnPee, 70); } }
+  function startPour() { if (!pouring && toiletScene.classList.contains('opened')) { startPeeSound(); spawnPee(); pouring = setInterval(spawnPee, 85); } }
   wireHotspot(bowl);                       // hover 顯示 (PEE) + 柔光
   bowl.addEventListener('mousedown', startPour);
   bowl.addEventListener('mouseleave', stopPour);
@@ -429,15 +459,27 @@
   function flush() {
     stopPour();
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    pile.classList.add('flushing');
     flushHint.classList.remove('on');
     state.relieved = true;
     setCursor('RELIEF'); cursor.classList.remove('glow');
-    setTimeout(function () {
-      pile.classList.remove('flushing');
-      pile.style.transform = ''; pile.style.opacity = '';
-      pile.innerHTML = ''; particles = []; fillR = 2;
-    }, 1100);
+    // (PEE) 螺旋捲入排水口（最低點）
+    var swirl = particles.map(function (p) {
+      var ux = p.x - DRAIN.x, uy = (p.y - DRAIN.y) / PILE_STRETCH;
+      return { p: p, ang: Math.atan2(uy, ux), rad: Math.sqrt(ux * ux + uy * uy) };
+    });
+    var t0 = performance.now(), DUR = 1200;
+    function anim(now) {
+      var t = Math.min(1, (now - t0) / DUR);
+      for (var i = 0; i < swirl.length; i++) {
+        var s = swirl[i], ang = s.ang + t * Math.PI * 5, rad = s.rad * (1 - t);   // 旋轉 + 向排水口收縮
+        s.p.el.style.left = (DRAIN.x + Math.cos(ang) * rad) + '%';
+        s.p.el.style.top = (DRAIN.y + Math.sin(ang) * rad * PILE_STRETCH) + '%';
+        s.p.el.style.opacity = (1 - t * 0.9);
+      }
+      if (t < 1) requestAnimationFrame(anim);
+      else { pile.innerHTML = ''; particles = []; fillR = 2; playRelief(); }   // 完成 -> 解脫聲
+    }
+    requestAnimationFrame(anim);
   }
 
   // Debug：按 D 顯示熱區外框
