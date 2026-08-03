@@ -29,7 +29,7 @@ D 洗手台 sink.jpg：(OPEN/CLOSE) 水龍頭出水，撥水物理，噴濺出�
 | `index.html` | 主程式（單一檔，含 HTML/CSS/JS） |
 | `door.jpg` `hub.jpg` `toilet-closed.jpg` `toilet-open.jpg` `sink.jpg` | 5 張場景圖（16:9，Dot Art 風） |
 | `cursor.png` | BACK 區塊用的像素箭頭鼠標（24×34，白底黑邊） |
-| `door sound.mp3` `pee sound.mp3` | 使用者提供音效（開門 / 長按尿尿循環） |
+| `door sound.mp3` `pee sound.mp3` `flush sound.mp3` `sink sound.mp3` | 使用者提供音效（開門 / 尿尿循環 / 沖水 / 洗手出水） |
 | `需求規格.md` | 完整需求規格（唯一需求依據） |
 | `CLAUDE.md` | 本檔 |
 
@@ -60,7 +60,8 @@ cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 - [x] 馬桶內長按 → `(PEE)` **從游標直線射向藍區最低點 `DRAIN` 並堆積**（`fillR` 向外填、夾限在綠色 `BOWL` 橢圓內）；字級 13–23px、黃色
 - [x] 沖水改為 **`(PEE)` 達 `FLUSH_MIN` 後按空白鍵** → 旋轉沖走 → 永久 `(RELIEF)`（無沖水把手）
 - [x] `(PEE)` 拋物線落向藍區（`SPEED`/`ARC`）；沖水改為**螺旋捲入排水口**（`flush()` rAF 動畫）
-- [x] **音效**：開門 `door sound.mp3`、長按尿尿 `pee sound.mp3`（循環）、沖完解脫大三和弦（`playRelief` 合成）
+- [x] **音效**：開門/尿尿/沖水/洗手皆用使用者音檔；沖完解脫大三和弦（合成）
+- [x] **音效工程**：各音效經 Web Audio 增益統一至 ≈ −25 dBFS；sink 用緩衝無縫循環 + `loopStart/loopEnd` 去頭尾靜音接縫；沖水音效於完成時停止
 - [ ] 馬桶物理/沖水效果持續微調中（座標：BOWL 綠橢圓、DRAIN 藍圈、hot-bowl 觸發框）
 - [x] **場景 D 洗手台**：水龍頭 `(OPEN/CLOSE)` 出水；`WATER` 朝最低點 `SDRAIN` 流動、夾限在 `SINK` 橢圓內、抵達排水口淡出消失；滑鼠撥水斥力（`MOUSE_R/F`）
 - [ ] 場景 D 水音效待使用者提供音檔後接上
