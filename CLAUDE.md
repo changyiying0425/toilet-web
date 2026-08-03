@@ -62,7 +62,9 @@ cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 - [x] `(PEE)` 拋物線落向藍區（`SPEED`/`ARC`）；沖水改為**螺旋捲入排水口**（`flush()` rAF 動畫）
 - [x] **音效**：開門 `door sound.mp3`、長按尿尿 `pee sound.mp3`（循環）、沖完解脫大三和弦（`playRelief` 合成）
 - [ ] 馬桶物理/沖水效果持續微調中（座標：BOWL 綠橢圓、DRAIN 藍圈、hot-bowl 觸發框）
-- [ ] 場景 D 洗手台（水龍頭出水、撥水物理）
+- [x] **場景 D 洗手台**：水龍頭 `(OPEN/CLOSE)` 出水；`WATER` 朝最低點 `SDRAIN` 流動、夾限在 `SINK` 橢圓內、抵達排水口淡出消失；滑鼠撥水斥力（`MOUSE_R/F`）
+- [ ] 場景 D 水音效待使用者提供音檔後接上
+- [ ] 部署 Netlify 公開連結
 - [ ] 場景 C 馬桶（掀蓋、(PEE) 堆積、沖水旋轉）
 - [ ] 場景 D 洗手台（水龍頭出水、撥水物理）
 - [ ] 部署 Netlify 公開連結

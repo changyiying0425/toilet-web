@@ -71,6 +71,13 @@
     color: #ffd21e; white-space: nowrap; letter-spacing: 1px;   /* 黃色 (PEE) */
     font-family: "DotGothic16", monospace; text-shadow: 0 0 2px #000, 0 0 4px #000;
   }
+  /* 場景 D：WATER 水滴 */
+  #water-pile { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+  .water {
+    position: absolute; transform: translate(-50%, -50%);
+    color: #1ea0ff; white-space: nowrap; letter-spacing: 1px;   /* 藍色 (WATER) */
+    font-family: "DotGothic16", monospace; text-shadow: 0 0 2px rgba(0,0,0,.7);
+  }
   /* 沖水提示（(PEE) 達門檻後出現） */
   #flush-hint {
     position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
@@ -175,8 +182,11 @@
            style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
     </div>
 
-    <!-- 場景 D：洗手台（互動待建，先作預覽） -->
+    <!-- 場景 D：洗手台（水龍頭 OPEN/CLOSE、WATER 撥水物理；位置暫定，按 D 校正） -->
     <div class="scene" id="scene-sink" data-src="sink.jpg" style="background-image:url('sink.jpg')">
+      <div class="hot" id="hot-faucet" data-label="OPEN"
+           style="left:42%; top:37%; width:16%; height:20%;"></div>
+      <div id="water-pile"></div>
       <div class="hot back" data-label="← BACK"
            style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
     </div>
@@ -307,10 +317,8 @@
     goScene('scene-hub', 'scene-toilet', function () { setCursor(idleWord()); hideWip(); });
   });
   wireHotspot(document.getElementById('hot-sink'), function () {
-    goScene('scene-hub', 'scene-sink', function () {
-      setCursor(idleWord());
-      showWip('洗手台場景 建置中…<br>按左上角 (← BACK) 返回全景');
-    });
+    resetSink();
+    goScene('scene-hub', 'scene-sink', function () { setCursor(idleWord()); hideWip(); });
   });
 
   // 左上角 (← BACK)：hub 回門、馬桶/洗手台回全景（依 data-target）
@@ -481,6 +489,68 @@
     }
     requestAnimationFrame(anim);
   }
+
+  // ── 場景 D 洗手台互動 ────────────────────────────────────────
+  var faucet = document.getElementById('hot-faucet');
+  var waterPile = document.getElementById('water-pile');
+  var SPOUT = { x: 50, y: 52 };                    // 出水口（藍圈）
+  var SDRAIN = { x: 50, y: 60 };                   // 綠色＝水槽最低點（排水口）
+  var SINK = { cx: 50, cy: 63, rx: 20, ry: 28 };   // 水槽橢圓
+  var W_ACC = 0.025, W_DAMP = 0.92, DRAIN_R = 2.5;    // 朝排水口的引力/阻尼/消失半徑
+  var MOUSE_R = 6, MOUSE_F = 0.5, MAX_WATER = 140;    // 撥水半徑/力道、上限
+  var waters = [], waterTimer = null, waterRaf = null, flowing = false;
+
+  function placeWater(w) { w.el.style.left = w.x + '%'; w.el.style.top = w.y + '%'; }
+  function clampSink(w) {                           // 限制在水槽橢圓內（撞壁減速）
+    var ux = (w.x - SINK.cx) / SINK.rx, uy = (w.y - SINK.cy) / SINK.ry, d = ux * ux + uy * uy;
+    if (d > 1) { var s = 1 / Math.sqrt(d); w.x = SINK.cx + (w.x - SINK.cx) * s; w.y = SINK.cy + (w.y - SINK.cy) * s; w.vx *= 0.4; w.vy *= 0.4; }
+  }
+  function spawnWater() {
+    if (waters.length >= MAX_WATER) return;
+    var el = document.createElement('span');
+    el.className = 'water'; el.textContent = '(WATER)';
+    el.style.fontSize = (11 + Math.random() * 6).toFixed(0) + 'px';
+    waterPile.appendChild(el);
+    var w = { el: el, x: SPOUT.x + (Math.random() - 0.5) * 3, y: SPOUT.y,
+              vx: (Math.random() - 0.5) * 0.3, vy: 0.25 + Math.random() * 0.15, op: 1, gone: false };
+    waters.push(w); placeWater(w);
+    if (!waterRaf) waterRaf = requestAnimationFrame(stepWater);
+  }
+  function stepWater() {
+    var mx = lastFrac.x * 100, my = lastFrac.y * 100, active = false;
+    for (var i = waters.length - 1; i >= 0; i--) {
+      var w = waters[i];
+      if (w.gone) {                                  // 抵達排水口 → 快速淡出消失
+        w.op -= 0.15; w.el.style.opacity = Math.max(0, w.op);
+        if (w.op <= 0) { w.el.remove(); waters.splice(i, 1); } else active = true;
+        continue;
+      }
+      var dx = w.x - mx, dy = w.y - my, dm = Math.sqrt(dx * dx + dy * dy);   // 滑鼠撥水（斥力）
+      if (dm < MOUSE_R && dm > 0.001) { var f = MOUSE_F * (1 - dm / MOUSE_R); w.vx += dx / dm * f; w.vy += dy / dm * f; }
+      var gx = SDRAIN.x - w.x, gy = SDRAIN.y - w.y, gd = Math.sqrt(gx * gx + gy * gy) || 0.001;
+      if (gd <= DRAIN_R) { w.gone = true; active = true; continue; }        // 到排水口
+      w.vx += gx / gd * W_ACC; w.vy += gy / gd * W_ACC;                     // 朝最低點流動
+      w.vx *= W_DAMP; w.vy *= W_DAMP;
+      w.x += w.vx; w.y += w.vy;
+      clampSink(w);
+      placeWater(w);
+      active = true;
+    }
+    waterRaf = active ? requestAnimationFrame(stepWater) : null;
+  }
+  function startWater() { if (!waterTimer) { spawnWater(); waterTimer = setInterval(spawnWater, 55); } }
+  function stopWater() { if (waterTimer) { clearInterval(waterTimer); waterTimer = null; } }
+  function resetSink() {
+    stopWater(); flowing = false; faucet.dataset.label = 'OPEN';
+    if (waterRaf) { cancelAnimationFrame(waterRaf); waterRaf = null; }
+    waterPile.innerHTML = ''; waters = [];
+  }
+  wireHotspot(faucet, function () {                 // 水龍頭 OPEN / CLOSE 切換
+    flowing = !flowing;
+    faucet.dataset.label = flowing ? 'CLOSE' : 'OPEN';
+    setCursor(faucet.dataset.label);
+    if (flowing) startWater(); else stopWater();
+  });
 
   // Debug：按 D 顯示熱區外框
   document.addEventListener('keydown', function (e) {
