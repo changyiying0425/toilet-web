@@ -59,8 +59,8 @@ D 洗手台 sink.jpg：水龍頭(OPEN/CLOSE)出水 → WATER流向排水口消�
 - 水龍頭 `hot-faucet` 切 OPEN/CLOSE；`resetSink()` 停水/清空/關龍頭。
 
 **音效（JS 音效區塊）**
-- `audio()`=Web Audio ctx；`route(el,gain)`=HTML5 音效導入增益節點（可放大）；`playRelief()`=合成大三和弦。
-- 元素與增益：door 0.36 / pee(loop) 1.2 / flush 1.62(+`stopFlushSound`) / click 1.2 / lid 1.0 / sink＝Web Audio 緩衝迴圈 gain 1.74（`loopStart/loopEnd` 去頭尾靜音）。
+- `audio()`=Web Audio ctx；`loadBuf/playBuf(url,gain,loop)`=**解碼後每次觸發都建新 BufferSource 播放**（iOS 相容，避免 `createMediaElementSource` 只響一次的 bug）；`playRelief()`=合成大三和弦。
+- 增益：door 0.36 / pee(loop,`peeSrc`) 1.2 / flush(`flushSrc`,+`stopFlushSound`) 2.0 / click 1.2 / lid 1.0 / sink＝Web Audio 緩衝迴圈 gain 1.2（`loopStart/loopEnd` 去頭尾靜音）/ 解脫和弦 osc 0.075。
 - **全部 ≈ −25 dBFS**。要重新平衡：用 `decodeAudioData` 量 RMS，`gain = 10^((-25 - rms)/20)`（點擊類短音別拉滿，避免破音）。
 - 檔名有空格者 HTML 用 `%20`（如 `sink%20sound.mp3`）。
 

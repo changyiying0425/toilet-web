@@ -454,23 +454,32 @@
     if (actx.state === 'suspended') actx.resume();
     return actx;
   }
-  // HTML5 音效導入 Web Audio 增益（可放大/縮小），統一響度至 ≈ −25 dBFS
-  function route(el, gainVal) {
-    var ctx = audio(); if (!ctx) return; el.volume = 1;
-    try { var s = ctx.createMediaElementSource(el); var g = ctx.createGain(); g.gain.value = gainVal; s.connect(g); g.connect(ctx.destination); } catch (e) {}
+  // 通用緩衝播放（iOS 相容：每次觸發都建立新 BufferSource，避免 MediaElementSource 只響一次）
+  var bufs = {};                                   // url -> AudioBuffer
+  function loadBuf(url) {
+    var ctx = audio(); if (!ctx) return;
+    fetch(url).then(function (r) { return r.arrayBuffer(); })
+      .then(function (ab) { return ctx.decodeAudioData(ab); })
+      .then(function (b) { bufs[url] = b; }).catch(function () {});
   }
-  var doorAudio = new Audio('door%20sound.mp3'); route(doorAudio, 0.36);      // 原 −16dB → −25
-  function playDoor() { audio(); try { doorAudio.currentTime = 0; doorAudio.play(); } catch (e) {} }
-  var peeAudio = new Audio('pee%20sound.mp3'); peeAudio.loop = true; route(peeAudio, 1.2);   // 原 −27dB → −25
-  function startPeeSound() { audio(); try { peeAudio.currentTime = 0; peeAudio.play(); } catch (e) {} }
-  function stopPeeSound() { try { peeAudio.pause(); } catch (e) {} }
-  var flushAudio = new Audio('flush%20sound.mp3'); route(flushAudio, 2.0);    // 調大（peak 上限 ~2.16）
-  function playFlushSound() { audio(); try { flushAudio.currentTime = 0; flushAudio.play(); } catch (e) {} }
-  function stopFlushSound() { try { flushAudio.pause(); } catch (e) {} }
-  var clickAudio = new Audio('mouse-click-.mp3'); route(clickAudio, 1.2);     // 點擊音效（短促，不拉滿以免破音）
-  function playClick() { audio(); try { clickAudio.currentTime = 0; clickAudio.play(); } catch (e) {} }
-  var lidAudio = new Audio('click-button.mp3'); route(lidAudio, 1.0);         // 掀蓋音效（已約 −25dB）
-  function playLidSound() { audio(); try { lidAudio.currentTime = 0; lidAudio.play(); } catch (e) {} }
+  function playBuf(url, gain, loop) {
+    var ctx = audio(); if (!ctx || !bufs[url]) return null;
+    var src = ctx.createBufferSource(); src.buffer = bufs[url]; src.loop = !!loop;
+    var g = ctx.createGain(); g.gain.value = gain;
+    src.connect(g); g.connect(ctx.destination); src.start();
+    return src;
+  }
+  ['door%20sound.mp3', 'pee%20sound.mp3', 'flush%20sound.mp3', 'mouse-click-.mp3', 'click-button.mp3'].forEach(loadBuf);
+
+  function playDoor() { playBuf('door%20sound.mp3', 0.36); }
+  function playClick() { playBuf('mouse-click-.mp3', 1.2); }
+  function playLidSound() { playBuf('click-button.mp3', 1.0); }
+  var peeSrc = null;
+  function startPeeSound() { if (!peeSrc) peeSrc = playBuf('pee%20sound.mp3', 1.2, true); }
+  function stopPeeSound() { if (peeSrc) { try { peeSrc.stop(); } catch (e) {} peeSrc = null; } }
+  var flushSrc = null;
+  function playFlushSound() { stopFlushSound(); flushSrc = playBuf('flush%20sound.mp3', 2.0); }
+  function stopFlushSound() { if (flushSrc) { try { flushSrc.stop(); } catch (e) {} flushSrc = null; } }
   // 水槽出水：Web Audio 緩衝無縫循環 + 去除頭尾靜音接縫（loopStart/loopEnd）
   var sinkBuffer = null, sinkLoop = { s: 0, e: 0 }, sinkSrc = null;
   (function () {
