@@ -10,7 +10,8 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    width: 100%; height: 100%;
+    width: 100%;
+    height: 100vh; height: 100svh;   /* 手機：用 svh 避免被工具列截斷 */
     background: #000;
     overflow: hidden;
     font-family: "DotGothic16", "Courier New", monospace;
@@ -26,8 +27,8 @@
     position: relative;
     width: 100vw;
     height: 56.25vw;
-    max-height: 100vh;
-    max-width: 177.78vh;
+    max-height: 100vh; max-height: 100svh;
+    max-width: 177.78vh; max-width: 177.78svh;
     background: #000;
     overflow: hidden;
   }
