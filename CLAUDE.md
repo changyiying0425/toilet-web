@@ -1,6 +1,8 @@
 # CLAUDE.md — 廁所互動小網頁
 
 > 專案給 Claude 的常駐說明檔。每次開啟專案先讀本檔掌握進度，需求細節見 [需求規格.md](需求規格.md)。
+>
+> 🔗 **線上版（Netlify，連 GitHub 自動部署）**：https://yiying-toilet.netlify.app
 
 ## 專案是什麼
 
