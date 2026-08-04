@@ -388,6 +388,7 @@
 
   // 掀蓋 LIFT（漸暗切換掀蓋圖）
   wireHotspot(document.getElementById('hot-lift'), function () {
+    playLidSound();
     fade.classList.add('on');
     setTimeout(function () {
       toiletScene.classList.add('opened');
@@ -446,6 +447,8 @@
   function stopFlushSound() { try { flushAudio.pause(); } catch (e) {} }
   var clickAudio = new Audio('mouse-click-.mp3'); route(clickAudio, 1.2);     // 點擊音效（短促，不拉滿以免破音）
   function playClick() { audio(); try { clickAudio.currentTime = 0; clickAudio.play(); } catch (e) {} }
+  var lidAudio = new Audio('click-button.mp3'); route(lidAudio, 1.0);         // 掀蓋音效（已約 −25dB）
+  function playLidSound() { audio(); try { lidAudio.currentTime = 0; lidAudio.play(); } catch (e) {} }
   // 水槽出水：Web Audio 緩衝無縫循環 + 去除頭尾靜音接縫（loopStart/loopEnd）
   var sinkBuffer = null, sinkLoop = { s: 0, e: 0 }, sinkSrc = null;
   (function () {
