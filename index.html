@@ -313,6 +313,7 @@
     setTimeout(function () {
       document.getElementById(fromId).classList.remove('active');
       if (fromId === 'scene-sink') resetSink();     // 離開洗手台 → 停水聲、關水龍頭
+      if (fromId === 'scene-toilet') resetToilet(); // 離開馬桶 → 停沖水聲、清理
       document.getElementById(toId).classList.add('active');
       applyInk();
       fade.classList.remove('on');
@@ -365,7 +366,7 @@
   var MAX_PEE = 400, FLUSH_MIN = 25, GRAV = 0.05;
   var DRAIN = { x: 50, y: 52 }, FILL_MAX = 8, ACC = 0.06, DAMP = 0.86;   // 藍色圈＝最低點（積水區/排水口）
   var SPEED = 1.5, ARC = 0.05, PILE_STRETCH = 1.5;   // SPEED=飛行速度、ARC=拋物線重力
-  var particles = [], fillR = 2, rafId = null, pouring = null;
+  var particles = [], fillR = 2, rafId = null, pouring = null, flushRaf = null;
 
   function ellipseHalfW(y) {              // 在給定 y，橢圓允許的半寬
     var t = (y - BOWL.cy) / BOWL.ry, v = 1 - t * t;
@@ -380,6 +381,8 @@
     toiletScene.style.backgroundImage = "url('toilet-closed.jpg')";
     stopPour();
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (flushRaf) { cancelAnimationFrame(flushRaf); flushRaf = null; }
+    stopFlushSound();                               // 離開時停沖水聲
     pile.classList.remove('flushing');
     pile.style.transform = ''; pile.style.opacity = '';
     pile.innerHTML = ''; particles = []; fillR = 2;
@@ -539,10 +542,10 @@
         s.p.el.style.top = (DRAIN.y + Math.sin(ang) * rad * PILE_STRETCH) + '%';
         s.p.el.style.opacity = (1 - t * 0.9);
       }
-      if (t < 1) requestAnimationFrame(anim);
-      else { pile.innerHTML = ''; particles = []; fillR = 2; stopFlushSound(); playRelief(); }   // 完成 -> 停沖水聲 + 解脫聲
+      if (t < 1) flushRaf = requestAnimationFrame(anim);
+      else { flushRaf = null; pile.innerHTML = ''; particles = []; fillR = 2; stopFlushSound(); playRelief(); }   // 完成 -> 停沖水聲 + 解脫聲
     }
-    requestAnimationFrame(anim);
+    flushRaf = requestAnimationFrame(anim);
   }
 
   // ── 場景 D 洗手台互動 ────────────────────────────────────────
