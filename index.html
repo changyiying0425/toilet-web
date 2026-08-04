@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Toilet — 廁所互動體驗</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +14,10 @@
     background: #000;
     overflow: hidden;
     font-family: "DotGothic16", "Courier New", monospace;
+    touch-action: none;              /* 手機：停用捲動/縮放手勢 */
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   body { display: flex; align-items: center; justify-content: center; cursor: none; }
 
@@ -143,6 +147,18 @@
     color: rgba(255,45,45,0.9); text-shadow: 0 0 2px rgba(0,0,0,0.5);
   }
 
+  /* 手機：沖水提示可點；橫向提示 */
+  body.touch #flush-hint.on { pointer-events: auto; }
+  #rotate-hint {
+    position: fixed; inset: 0; z-index: 100; background: #000;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; color: #fff;
+    font-family: "DotGothic16", monospace; font-size: 22px; line-height: 1.8; letter-spacing: 2px;
+  }
+  @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+    #rotate-hint { display: flex; }
+  }
+
   /* 黑幕轉場 */
   #fade {
     position: absolute; inset: 0; background: #000;
@@ -213,6 +229,8 @@
     <div id="wip"></div>
     <div id="hint">按 D 顯示 / 隱藏 熱區外框</div>
   </div>
+
+  <div id="rotate-hint">請將手機橫置 📱↻<br><span style="font-size:15px;color:#aaa;">以獲得最佳體驗</span></div>
 
 <script>
 (function () {
@@ -645,6 +663,56 @@
     setTimeout(function () { el.remove(); }, 650);
   }
   setInterval(spawnUrgencyBit, 110);
+
+  // ── 觸控（手機）支援：偵測 + touch 對應（方案 B：直接點）──────────
+  var TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
+  function enableTouch() { if (!TOUCH) { TOUCH = true; } document.body.classList.add('touch'); updateFlushHint(); }
+  if (TOUCH) enableTouch();
+  window.addEventListener('touchstart', function () { audio(); enableTouch(); }, { passive: true, capture: true });
+
+  function updateFlushHint() { flushHint.textContent = TOUCH ? '點此沖水' : '按 [SPACE] 沖水'; }
+  updateFlushHint();
+
+  var tsx = 0, tsy = 0, tMoved = false;
+  function touchApply(e) {                          // 更新游標位置/字/取樣，回傳手指下的熱區
+    var t = e.touches[0] || e.changedTouches[0], r = stage.getBoundingClientRect();
+    var x = t.clientX - r.left, y = t.clientY - r.top;
+    cursor.style.left = x + 'px'; cursor.style.top = y + 'px'; cursor.style.opacity = 1;
+    lastFrac.x = x / r.width; lastFrac.y = y / r.height;
+    applyInk();
+    var under = document.elementFromPoint(t.clientX, t.clientY);
+    var hot = under && under.closest ? under.closest('.hot') : null;
+    if (hot && hot.dataset.label && !hot.classList.contains('back')) { setCursor(hot.dataset.label); cursor.classList.add('glow'); }
+    else { setCursor(idleWord()); cursor.classList.remove('glow'); }
+    return { t: t, under: under, hot: hot };
+  }
+  stage.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    var info = touchApply(e);
+    tsx = info.t.clientX; tsy = info.t.clientY; tMoved = false;
+    if (info.hot && info.hot.id === 'hot-bowl') startPour();   // 按住馬桶 → 尿尿
+  }, { passive: false });
+  stage.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    var info = touchApply(e);
+    if (Math.abs(info.t.clientX - tsx) > 8 || Math.abs(info.t.clientY - tsy) > 8) tMoved = true;
+  }, { passive: false });
+  function onTouchEnd(e) {
+    stopPour();
+    var t = e.changedTouches[0];
+    var under = document.elementFromPoint(t.clientX, t.clientY);
+    var hot = under && under.closest ? under.closest('.hot') : null;
+    if (!tMoved) {                                   // 輕點（非拖曳）→ 觸發動作
+      if (under && under.id === 'flush-hint' && flushHint.classList.contains('on')) flush();
+      else if (hot) hot.dispatchEvent(new MouseEvent('click'));
+    }
+    cursor.classList.remove('glow'); setCursor(idleWord());
+  }
+  stage.addEventListener('touchend', onTouchEnd);
+  stage.addEventListener('touchcancel', onTouchEnd);
+
+  // 初始把游標文字放畫面中央（手機未觸控前也看得到 (URGENCY)）
+  (function () { var r = stage.getBoundingClientRect(); cursor.style.left = (r.width / 2) + 'px'; cursor.style.top = (r.height / 2) + 'px'; })();
 
   setCursor(idleWord());
   applyInk();
