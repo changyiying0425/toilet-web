@@ -62,6 +62,9 @@ cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 - [x] `(PEE)` 拋物線落向藍區（`SPEED`/`ARC`）；沖水改為**螺旋捲入排水口**（`flush()` rAF 動畫）
 - [x] **音效**：開門/尿尿/沖水/洗手皆用使用者音檔；沖完解脫大三和弦（合成）
 - [x] **音效工程**：各音效經 Web Audio 增益統一至 ≈ −25 dBFS；sink 用緩衝無縫循環 + `loopStart/loopEnd` 去頭尾靜音接縫；沖水音效於完成時停止
+- [x] **點擊音效** `mouse-click-.mp3`：全景選 TOILET/SINK 時播放
+- [x] **`(URGENCY)` 緊急效果**：後方紅光脈動（`#cursor.urgent`）＋小字以游標為中心微微噴發散開（`#urgency-burst`，強制 reflow 使靜止時也噴）
+- [x] **洗手台離開修正**：`goScene` 離開 `scene-sink` 時 `resetSink()` 停水聲/關水龍頭（避免水聲殘留）
 - [ ] 馬桶物理/沖水效果持續微調中（座標：BOWL 綠橢圓、DRAIN 藍圈、hot-bowl 觸發框）
 - [x] **場景 D 洗手台**：水龍頭 `(OPEN/CLOSE)` 出水；`WATER` 朝最低點 `SDRAIN` 流動、夾限在 `SINK` 橢圓內、抵達排水口淡出消失；滑鼠撥水斥力（`MOUSE_R/F`）
 - [ ] 場景 D 水音效待使用者提供音檔後接上

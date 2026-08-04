@@ -126,6 +126,22 @@
   body.inverted #cursor::before {
     background: radial-gradient(ellipse at center, rgba(255,255,255,0.9), rgba(255,255,255,0) 70%);
   }
+  /* (URGENCY) 時：後方紅色光暈脈動閃爍，增添緊急感 */
+  #cursor.urgent::before {
+    background: radial-gradient(ellipse at center, rgba(255,40,40,0.95), rgba(255,40,40,0) 70%) !important;
+    animation: urgentPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes urgentPulse {
+    0%, 100% { opacity: 0.15; transform: translate(-50%,-50%) scale(0.8); }
+    50%      { opacity: 1;    transform: translate(-50%,-50%) scale(1.25); }
+  }
+  /* (URGENCY) 小字以游標為中心微微向周圍噴出 */
+  #urgency-burst { position: absolute; inset: 0; pointer-events: none; z-index: 49; overflow: hidden; }
+  .ubit {
+    position: absolute; transform: translate(-50%,-50%);
+    font-family: "DotGothic16", monospace; white-space: nowrap;
+    color: rgba(255,45,45,0.9); text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  }
 
   /* 黑幕轉場 */
   #fade {
@@ -191,6 +207,7 @@
            style="left:3%; top:3.5%; width:7.7%; height:7.6%;">(← BACK)</div>
     </div>
 
+    <div id="urgency-burst"></div>
     <div id="cursor">(URGENCY)</div>
     <div id="fade"></div>
     <div id="wip"></div>
@@ -214,7 +231,7 @@
     if (sc && sc.id === 'scene-toilet' && sc.classList.contains('opened')) return 'PEE';
     return 'URGENCY';
   }
-  function setCursor(word) { cursor.textContent = '(' + word + ')'; }
+  function setCursor(word) { cursor.textContent = '(' + word + ')'; cursor.classList.toggle('urgent', word === 'URGENCY'); }
   function setInk(mode) { document.body.classList.toggle('inverted', mode === 'white'); }
 
   // ── 背景深淺取樣器 ──────────────────────────────────────────
@@ -295,6 +312,7 @@
     fade.classList.add('on');
     setTimeout(function () {
       document.getElementById(fromId).classList.remove('active');
+      if (fromId === 'scene-sink') resetSink();     // 離開洗手台 → 停水聲、關水龍頭
       document.getElementById(toId).classList.add('active');
       applyInk();
       fade.classList.remove('on');
@@ -313,10 +331,12 @@
 
   // B 全景 -> C 馬桶（每次進入重置為關蓋）
   wireHotspot(document.getElementById('hot-toilet'), function () {
+    playClick();
     resetToilet();
     goScene('scene-hub', 'scene-toilet', function () { setCursor(idleWord()); hideWip(); });
   });
   wireHotspot(document.getElementById('hot-sink'), function () {
+    playClick();
     resetSink();
     goScene('scene-hub', 'scene-sink', function () { setCursor(idleWord()); hideWip(); });
   });
@@ -424,6 +444,8 @@
   var flushAudio = new Audio('flush%20sound.mp3'); route(flushAudio, 1.62);   // 原 −29dB → −25
   function playFlushSound() { audio(); try { flushAudio.currentTime = 0; flushAudio.play(); } catch (e) {} }
   function stopFlushSound() { try { flushAudio.pause(); } catch (e) {} }
+  var clickAudio = new Audio('mouse-click-.mp3'); route(clickAudio, 1.2);     // 點擊音效（短促，不拉滿以免破音）
+  function playClick() { audio(); try { clickAudio.currentTime = 0; clickAudio.play(); } catch (e) {} }
   // 水槽出水：Web Audio 緩衝無縫循環 + 去除頭尾靜音接縫（loopStart/loopEnd）
   var sinkBuffer = null, sinkLoop = { s: 0, e: 0 }, sinkSrc = null;
   (function () {
@@ -597,6 +619,26 @@
       flush();
     }
   });
+
+  // (URGENCY) 小字噴發：以游標為中心微微向周圍散開再淡出
+  var burst = document.getElementById('urgency-burst');
+  function spawnUrgencyBit() {
+    if (!cursor.classList.contains('urgent') || cursor.style.opacity === '0' || document.body.classList.contains('over-back')) return;
+    var x0 = lastFrac.x * 100, y0 = lastFrac.y * 100;
+    var el = document.createElement('span');
+    el.className = 'ubit'; el.textContent = '(URGENCY)';
+    el.style.fontSize = (7 + Math.random() * 4).toFixed(0) + 'px';
+    el.style.left = x0 + '%'; el.style.top = y0 + '%'; el.style.opacity = '0.85';
+    burst.appendChild(el);
+    var ang = Math.random() * Math.PI * 2, dist = 3 + Math.random() * 4;
+    var nx = x0 + Math.cos(ang) * dist, ny = y0 + Math.sin(ang) * dist;
+    void el.offsetWidth;   // 強制 reflow → 靜止不動時也能觸發過渡動畫
+    el.style.transition = 'left .6s ease-out, top .6s ease-out, opacity .6s ease-out, transform .6s ease-out';
+    el.style.left = nx + '%'; el.style.top = ny + '%';
+    el.style.opacity = '0'; el.style.transform = 'translate(-50%,-50%) scale(0.5)';
+    setTimeout(function () { el.remove(); }, 650);
+  }
+  setInterval(spawnUrgencyBit, 110);
 
   setCursor(idleWord());
   applyInk();
