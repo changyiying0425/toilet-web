@@ -454,6 +454,11 @@
     if (actx.state === 'suspended') actx.resume();
     return actx;
   }
+  var _unlocked = false;
+  function unlockAudio() {                          // iOS：首次手勢播無聲緩衝解鎖 WebAudio
+    var ctx = audio(); if (!ctx || _unlocked) return;
+    try { ctx.resume(); var b = ctx.createBufferSource(); b.buffer = ctx.createBuffer(1, 1, 22050); b.connect(ctx.destination); b.start(0); _unlocked = true; } catch (e) {}
+  }
   // 通用緩衝播放（iOS 相容：每次觸發都建立新 BufferSource，避免 MediaElementSource 只響一次）
   var bufs = {};                                   // url -> AudioBuffer
   function loadBuf(url) {
@@ -678,7 +683,8 @@
   var TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
   function enableTouch() { if (!TOUCH) { TOUCH = true; } document.body.classList.add('touch'); updateFlushHint(); }
   if (TOUCH) enableTouch();
-  window.addEventListener('touchstart', function () { audio(); enableTouch(); }, { passive: true, capture: true });
+  window.addEventListener('touchstart', function () { unlockAudio(); enableTouch(); }, { passive: true, capture: true });
+  window.addEventListener('mousedown', function () { unlockAudio(); }, { capture: true });
 
   function updateFlushHint() { flushHint.textContent = TOUCH ? '點此沖水' : '按 [SPACE] 沖水'; }
   updateFlushHint();
@@ -721,8 +727,15 @@
   stage.addEventListener('touchend', onTouchEnd);
   stage.addEventListener('touchcancel', onTouchEnd);
 
-  // 初始把游標文字放畫面中央（手機未觸控前也看得到 (URGENCY)）
-  (function () { var r = stage.getBoundingClientRect(); cursor.style.left = (r.width / 2) + 'px'; cursor.style.top = (r.height / 2) + 'px'; })();
+  // 游標文字位置＝lastFrac 換算的實際像素；初始置中並在尺寸/轉向變動時重對齊（與噴發 %對齊）
+  function placeCursorFromFrac() {
+    var r = stage.getBoundingClientRect();
+    cursor.style.left = (lastFrac.x * r.width) + 'px';
+    cursor.style.top = (lastFrac.y * r.height) + 'px';
+  }
+  requestAnimationFrame(placeCursorFromFrac);
+  window.addEventListener('resize', placeCursorFromFrac);
+  window.addEventListener('orientationchange', function () { setTimeout(placeCursorFromFrac, 300); });
 
   setCursor(idleWord());
   applyInk();
