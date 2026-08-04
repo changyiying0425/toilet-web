@@ -464,7 +464,7 @@
   var peeAudio = new Audio('pee%20sound.mp3'); peeAudio.loop = true; route(peeAudio, 1.2);   // 原 −27dB → −25
   function startPeeSound() { audio(); try { peeAudio.currentTime = 0; peeAudio.play(); } catch (e) {} }
   function stopPeeSound() { try { peeAudio.pause(); } catch (e) {} }
-  var flushAudio = new Audio('flush%20sound.mp3'); route(flushAudio, 1.62);   // 原 −29dB → −25
+  var flushAudio = new Audio('flush%20sound.mp3'); route(flushAudio, 2.0);    // 調大（peak 上限 ~2.16）
   function playFlushSound() { audio(); try { flushAudio.currentTime = 0; flushAudio.play(); } catch (e) {} }
   function stopFlushSound() { try { flushAudio.pause(); } catch (e) {} }
   var clickAudio = new Audio('mouse-click-.mp3'); route(clickAudio, 1.2);     // 點擊音效（短促，不拉滿以免破音）
@@ -489,7 +489,7 @@
     var ctx = audio(); if (!ctx || !sinkBuffer || sinkSrc) return;
     sinkSrc = ctx.createBufferSource(); sinkSrc.buffer = sinkBuffer;
     sinkSrc.loop = true; sinkSrc.loopStart = sinkLoop.s; sinkSrc.loopEnd = sinkLoop.e;
-    var g = ctx.createGain(); g.gain.value = 1.74;             // 原 −30dB → −25
+    var g = ctx.createGain(); g.gain.value = 1.2;              // 調小
     sinkSrc.connect(g); g.connect(ctx.destination);
     sinkSrc.start(0, sinkLoop.s);
   }
@@ -500,7 +500,7 @@
       var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
       var g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.046, t0 + 0.08 + k * 0.05);
+      g.gain.exponentialRampToValueAtTime(0.075, t0 + 0.08 + k * 0.05);   // 調大（完成解脫和弦）
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3);
       o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0 + 1.35);
     });
