@@ -1,0 +1,4 @@
+# Netlify 部署設定：純靜態網站（index.html 位於根目錄，無需建置）
+[build]
+  publish = "."
+  command = ""
