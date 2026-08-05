@@ -59,8 +59,10 @@ D 洗手台 sink.jpg：水龍頭(OPEN/CLOSE)出水 → WATER流向排水口消�
 - 水龍頭 `hot-faucet` 切 OPEN/CLOSE；`resetSink()` 停水/清空/關龍頭。
 
 **音效（JS 音效區塊）**
-- `audio()`=Web Audio ctx；`loadBuf/playBuf(url,gain,loop)`=**解碼後每次觸發都建新 BufferSource 播放**（iOS 相容，避免 `createMediaElementSource` 只響一次的 bug）；`playRelief()`=合成大三和弦。
-- 增益：door 0.36 / pee(loop,`peeSrc`) 1.2 / flush(`flushSrc`,+`stopFlushSound`) 2.0 / click 1.2 / lid 1.0 / sink＝Web Audio 緩衝迴圈 gain 1.2（`loopStart/loopEnd` 去頭尾靜音）/ 解脫和弦 osc 0.075。
+- **播放一律用 HTML5 `<audio>`**（`mkAudio/playOne`，iOS 相容性最佳；Web Audio 緩衝/MediaElementSource 在 iOS 上會只響一次或全啞，已放棄）。首次手勢 `unlockHtmlAudio()` 靜音預播解鎖所有音檔（含合成 click 觸發也能播）。
+- `<audio>.volume`（≤1，無法放大）：door 0.36 / click 1 / lid 1 / pee(loop) 1 / flush 1 / sink(loop) 0.6。
+- `playRelief()`＝Web Audio 合成大三和弦（osc 0.075，`unlockAudio()` 解鎖）。
+- ⚠️ 限制：`<audio>` 音量最大 1.0，無法把偏小的音效（如 flush）再放大；sink 用 `<audio loop>` 可能有輕微接縫。反正先保證 iOS「每次點擊都有聲」。
 - **全部 ≈ −25 dBFS**。要重新平衡：用 `decodeAudioData` 量 RMS，`gain = 10^((-25 - rms)/20)`（點擊類短音別拉滿，避免破音）。
 - 檔名有空格者 HTML 用 `%20`（如 `sink%20sound.mp3`）。
 
