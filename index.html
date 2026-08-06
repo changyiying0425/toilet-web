@@ -206,7 +206,7 @@
     <!-- 場景 C：馬桶（掀蓋 → PEE 堆積 → 沖水；位置暫定，按 D 校正） -->
     <div class="scene" id="scene-toilet" data-src="toilet-closed.jpg" style="background-image:url('toilet-closed.jpg')">
       <div class="hot when-closed" id="hot-lift" data-label="LIFT"
-           style="left:33%; top:2%; width:30%; height:86%;"></div>
+           style="left:31%; top:1%; width:37%; height:88%;"></div>
       <div class="hot when-open" id="hot-bowl" data-label="PEE"
            style="left:10%; top:28%; width:85%; height:72%;"></div>
       <div id="pee-pile"></div>
@@ -228,7 +228,7 @@
     <div id="cursor">(URGENCY)</div>
     <div id="fade"></div>
     <div id="wip"></div>
-    <div id="hint">按 D 顯示 / 隱藏 熱區外框</div>
+    <div id="hint"></div>
   </div>
 
   <div id="rotate-hint">請將手機橫置 📱↻<br><span style="font-size:15px;color:#aaa;">以獲得最佳體驗</span></div>
@@ -629,7 +629,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'd' || e.key === 'D') {
       var on = document.body.classList.toggle('debug');
-      if (!on) hint.textContent = '按 D 顯示 / 隱藏 熱區外框';
+      if (!on) hint.textContent = '';
     }
     if (e.code === 'Space' &&
         currentScene() && currentScene().id === 'scene-toilet' &&
