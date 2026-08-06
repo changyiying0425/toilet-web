@@ -459,30 +459,33 @@
     var ctx = audio(); if (!ctx || _unlocked) return;
     try { ctx.resume(); var b = ctx.createBufferSource(); b.buffer = ctx.createBuffer(1, 1, 22050); b.connect(ctx.destination); b.start(0); _unlocked = true; } catch (e) {}
   }
-  // 一律用 HTML5 <audio> 直接播放（iOS 相容性最佳；每次 tap 在手勢內 play）
+  // 一律用 HTML5 <audio>（iOS 相容）；一次性音效用「小音池輪替」，避免快速重玩時撞到還在忙的元素而漏播
   function mkAudio(url, vol, loop) { var a = new Audio(url); a.volume = vol; if (loop) a.loop = true; a.preload = 'auto'; return a; }
-  var doorA = mkAudio('door%20sound.mp3', 0.36);
-  var clickA = mkAudio('mouse-click-.mp3', 1);
-  var lidA = mkAudio('click-button.mp3', 1);
+  function mkPool(url, vol, n) {
+    var pool = [], i = 0; for (var k = 0; k < n; k++) pool.push(mkAudio(url, vol));
+    return { els: pool, play: function () { var a = pool[i]; i = (i + 1) % pool.length; try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} } };
+  }
+  var doorP = mkPool('door%20sound.mp3', 0.36, 3);
+  var clickP = mkPool('mouse-click-.mp3', 1, 3);
+  var lidP = mkPool('click-button.mp3', 1, 3);
   var peeA = mkAudio('pee%20sound.mp3', 1, true);
   var flushA = mkAudio('flush%20sound.mp3', 1);
   var sinkA = mkAudio('sink%20sound.mp3', 0.6, true);
   function playOne(a) { try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
-  function playDoor() { playOne(doorA); }
-  function playClick() { playOne(clickA); }
-  function playLidSound() { playOne(lidA); }
+  function playDoor() { doorP.play(); }
+  function playClick() { clickP.play(); }
+  function playLidSound() { lidP.play(); }
   function startPeeSound() { playOne(peeA); }
   function stopPeeSound() { try { peeA.pause(); } catch (e) {} }
   function playFlushSound() { playOne(flushA); }
   function stopFlushSound() { try { flushA.pause(); } catch (e) {} }
   function startSinkSound() { playOne(sinkA); }
   function stopSinkSound() { try { sinkA.pause(); } catch (e) {} }
-  // iOS：首次手勢「play 後立即同步 pause」解鎖所有 <audio>（聲音尚未輸出前就停，無聲解鎖；
-  // 因為 iOS 忽略 .volume，不能用音量歸零來靜音）
+  // iOS：首次手勢「play 後立即同步 pause」無聲解鎖所有 <audio>（含池內元素；iOS 忽略 .volume 不能靠歸零靜音）
   var _htmlUnlocked = false;
   function unlockHtmlAudio() {
     if (_htmlUnlocked) return; _htmlUnlocked = true;
-    [doorA, clickA, lidA, peeA, flushA, sinkA].forEach(function (a) {
+    doorP.els.concat(lidP.els, clickP.els, [peeA, flushA, sinkA]).forEach(function (a) {
       try { var p = a.play(); a.pause(); a.currentTime = 0; if (p && p.catch) p.catch(function () {}); } catch (e) {}
     });
   }
