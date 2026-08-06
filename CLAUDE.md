@@ -78,7 +78,7 @@ D 洗手台 sink.jpg：水龍頭(OPEN/CLOSE)出水 → WATER流向排水口消�
 ```bash
 cd "C:/AI/claude/網頁嘗試" && python -m http.server 8123
 ```
-開 `http://localhost:8123/index.html`。**改完務必 `Ctrl+Shift+R` 強制重載**（會吃快取）。按 `D`＝顯示熱區框 + 右下即時 `X% Y%` 座標。
+開 `http://localhost:8123/index.html`。**改完務必 `Ctrl+Shift+R` 強制重載**（會吃快取）。按 `D`＝顯示熱區框 + 右下即時 `X% Y%` 座標（**功能保留，但公開頁已不顯示「按 D」提示字**，`#hint` 預設清空）。
 
 **⚠️ 瀏覽器面板（mcp__Claude_Browser__）的限制：**
 面板常「未顯示」→ `getBoundingClientRect()` 回 **0**、`requestAnimationFrame`/CSS transition **凍結**、截圖失敗。**所以無法在面板裡實測互動物理/動畫/座標**。可行的驗證：
