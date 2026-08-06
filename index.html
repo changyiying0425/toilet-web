@@ -477,17 +477,13 @@
   function stopFlushSound() { try { flushA.pause(); } catch (e) {} }
   function startSinkSound() { playOne(sinkA); }
   function stopSinkSound() { try { sinkA.pause(); } catch (e) {} }
-  // iOS：首次手勢時「靜音預播一次」解鎖所有 <audio>，之後（含合成事件觸發）都能播
+  // iOS：首次手勢「play 後立即同步 pause」解鎖所有 <audio>（聲音尚未輸出前就停，無聲解鎖；
+  // 因為 iOS 忽略 .volume，不能用音量歸零來靜音）
   var _htmlUnlocked = false;
   function unlockHtmlAudio() {
     if (_htmlUnlocked) return; _htmlUnlocked = true;
     [doorA, clickA, lidA, peeA, flushA, sinkA].forEach(function (a) {
-      var v = a.volume; a.volume = 0;
-      try {
-        var p = a.play();
-        if (p && p.then) p.then(function () { a.pause(); a.currentTime = 0; a.volume = v; }).catch(function () { a.volume = v; });
-        else { a.pause(); a.volume = v; }
-      } catch (e) { a.volume = v; }
+      try { var p = a.play(); a.pause(); a.currentTime = 0; if (p && p.catch) p.catch(function () {}); } catch (e) {}
     });
   }
   function playRelief() {                         // 完成：解脫大三和弦
@@ -671,7 +667,7 @@
   function updateFlushHint() { flushHint.textContent = TOUCH ? '點此沖水' : '按 [SPACE] 沖水'; }
   updateFlushHint();
 
-  var tsx = 0, tsy = 0, tMoved = false;
+  var tsx = 0, tsy = 0, tMoved = false, lastTouchEnd = 0;
   function touchApply(e) {                          // 更新游標位置/字/取樣，回傳手指下的熱區
     var t = e.touches[0] || e.changedTouches[0], r = stage.getBoundingClientRect();
     var x = t.clientX - r.left, y = t.clientY - r.top;
@@ -705,9 +701,14 @@
       else if (hot) hot.dispatchEvent(new MouseEvent('click'));
     }
     cursor.classList.remove('glow'); setCursor(idleWord());
+    lastTouchEnd = Date.now();
   }
   stage.addEventListener('touchend', onTouchEnd);
   stage.addEventListener('touchcancel', onTouchEnd);
+  // 幽靈點擊攔截：吞掉觸控後緊接的原生 click（isTrusted），只保留自己派發的（非 trusted）
+  document.addEventListener('click', function (e) {
+    if (e.isTrusted && Date.now() - lastTouchEnd < 700) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
 
   // 游標文字位置＝lastFrac 換算的實際像素；初始置中並在尺寸/轉向變動時重對齊（與噴發 %對齊）
   function placeCursorFromFrac() {
